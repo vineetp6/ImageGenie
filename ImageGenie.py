@@ -1,17 +1,7 @@
-# Import necessary libraries for GUI and image processing.
-# tkinter: For creating the graphical user interface.
-# filedialog and messagebox: For file selection and displaying messages.
-# ttk: Provides themed widget set for more modern-looking GUI elements.
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-
-# Pillow modules for image manipulation:
-# Image: Opens and manipulates images.
-# ImageDraw: Draws shapes on images.
-# ImageTk: Converts PIL images for display in Tkinter.
-# ImageOps: Provides common image operations (grayscale, invert, etc.).
+import os
 from PIL import Image, ImageDraw, ImageTk, ImageOps
-import os  # os module for file path manipulations.
 
 # -------------------------------
 # TRANSFORMATION FUNCTIONS
@@ -19,50 +9,36 @@ import os  # os module for file path manipulations.
 
 def pixelate_image(image, pixel_size=10):
     """
-    Converts the image into a pixelated version.
-    It divides the image into blocks of size (pixel_size x pixel_size), computes the average color,
-    and draws a rectangle filled with that color over each block.
+    Create a pixelated version of an image.
+    Divides the image into blocks, computes each block's average color,
+    and then draws a colored rectangle on that block.
     """
-    # Ensure the image is in RGB mode.
     image = image.convert("RGB")
     width, height = image.size
-
-    # Create a new blank image with the same size to draw the pixelated effect.
     pixelated_image = Image.new("RGB", (width, height))
-    # Create a drawing object.
     draw = ImageDraw.Draw(pixelated_image)
-
-    # Loop through the image in steps of pixel_size.
+    
     for y in range(0, height, pixel_size):
         for x in range(0, width, pixel_size):
-            # Define the coordinates for the current block.
             box = (x, y, x + pixel_size, y + pixel_size)
-            # Crop the section of the image corresponding to the block.
             block = image.crop(box)
-            # Convert the block into a list of its pixel data.
             pixels = list(block.getdata())
-            # Calculate the average color by summing values per channel and dividing by number of pixels.
             num_pixels = len(pixels)
             avg_color = tuple(sum(channel) // num_pixels for channel in zip(*pixels))
-            # Draw a rectangle filled with the average color onto the new image.
             draw.rectangle(box, fill=avg_color)
     return pixelated_image
 
 def dot_mosaic_image(image, pixel_size=10):
     """
-    Creates a dot mosaic version of the image.
-    Similar to pixelate_image, it divides the image into blocks but instead draws a filled circle (dot)
-    for each block using the average color.
+    Create a dot mosaic version of an image.
+    Divides the image into blocks, calculates the average color,
+    and draws a filled circle (dot) in the center of each block.
     """
-    # Ensure image is in RGB mode.
     image = image.convert("RGB")
     width, height = image.size
-
-    # Create a new blank image with a white background.
     mosaic_image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(mosaic_image)
-
-    # Process the image block by block.
+    
     for y in range(0, height, pixel_size):
         for x in range(0, width, pixel_size):
             box = (x, y, x + pixel_size, y + pixel_size)
@@ -70,30 +46,24 @@ def dot_mosaic_image(image, pixel_size=10):
             pixels = list(block.getdata())
             num_pixels = len(pixels)
             avg_color = tuple(sum(channel) // num_pixels for channel in zip(*pixels))
-            # Calculate the center of the block.
             center_x = x + pixel_size // 2
             center_y = y + pixel_size // 2
-            # Radius for the dot (circle).
             radius = pixel_size // 2
-            # Define the bounding box for the ellipse (circle) to be drawn.
             ellipse_box = (center_x - radius, center_y - radius,
                            center_x + radius, center_y + radius)
-            # Draw the circle (dot) with the average color.
             draw.ellipse(ellipse_box, fill=avg_color)
     return mosaic_image
 
 def grayscale_image(image):
     """
-    Converts the image to grayscale.
-    The image is first converted to "L" mode (grayscale) and then back to RGB,
-    ensuring consistency with other processing functions.
+    Convert the image to grayscale.
+    The image is processed and returned in RGB mode.
     """
     return ImageOps.grayscale(image).convert("RGB")
 
 def invert_image(image):
     """
-    Inverts the colors of the image.
-    Converts the image to RGB and then applies the inversion.
+    Invert the colors of the image.
     """
     image = image.convert("RGB")
     return ImageOps.invert(image)
@@ -105,37 +75,70 @@ def invert_image(image):
 class ImageTransformerApp:
     def __init__(self, root):
         """
-        Initializes the GUI window and its widgets.
-        Args:
-            root: The root Tkinter window.
+        Initialize the GUI with a modern, visually appealing layout.
+        Applies custom styling to frames, labels, and buttons.
         """
         self.root = root
         self.root.title("Advanced Image Transformer")
-        self.image = None       # This will hold the original PIL image.
-        self.image_path = None  # This stores the full path of the loaded image.
+        self.root.configure(background="#ffffff")
+        self.image = None           # Holds the loaded image.
+        self.image_path = None      # Path to the loaded image.
+        self.save_directory = None  # Output directory for processed images.
 
-        # Frame for file selection.
-        file_frame = ttk.LabelFrame(root, text="1. Select an Image")
-        file_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        # Button to trigger image selection.
+        # Create and configure a ttk Style for a modern look.
+        self.style = ttk.Style()
+        self.style.theme_use("clam")  # Using 'clam' for flexibility in styling.
+        self.style.configure("TFrame", background="#ffffff")
+        self.style.configure("TLabel", background="#ffffff", foreground="#333333", font=("Helvetica", 10))
+        self.style.configure("TLabelFrame", background="#ffffff", foreground="#333333", font=("Helvetica", 11, "bold"))
+        self.style.configure("TLabelFrame.Label", background="#ffffff")
+        self.style.configure("TButton", background="#4CAF50", foreground="white", font=("Helvetica", 10, "bold"), padding=6)
+        self.style.map("TButton", background=[("active", "#45a049")])
+        
+        # Configure the root window to have three columns: left margin, center content, right margin.
+        self.root.columnconfigure(0, weight=1)
+        self.root.columnconfigure(1, weight=3)  # Center column gets most of the space.
+        self.root.columnconfigure(2, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        
+        # Create the central container frame.
+        self.main_frame = ttk.Frame(self.root, padding=20)
+        self.main_frame.grid(row=0, column=1, sticky="nsew")
+        self.main_frame.columnconfigure(0, weight=1)
+        
+        # ----- FILE SELECTION FRAME -----
+        file_frame = ttk.LabelFrame(self.main_frame, text="1. Select an Image")
+        file_frame.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        file_frame.columnconfigure(1, weight=1)
         self.select_btn = ttk.Button(file_frame, text="Select Image", command=self.select_image)
-        self.select_btn.grid(row=0, column=0, padx=5, pady=5)
-        # Label to display the name of the selected file.
+        self.select_btn.grid(row=0, column=0, padx=10, pady=10, sticky="w")
         self.file_label = ttk.Label(file_frame, text="No file selected")
-        self.file_label.grid(row=0, column=1, padx=5, pady=5)
+        self.file_label.grid(row=0, column=1, padx=10, pady=10, sticky="w")
+        
+        # ----- IMAGE INFORMATION FRAME -----
+        info_frame = ttk.LabelFrame(self.main_frame, text="Image Information")
+        info_frame.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        info_frame.columnconfigure(0, weight=1)
+        self.info_label = ttk.Label(info_frame, text="No image loaded", wraplength=400)
+        self.info_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
 
-        # Frame for transformation options.
-        options_frame = ttk.LabelFrame(root, text="2. Choose Transformations")
-        options_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
-
-        # Label and entry for setting pixel size (used in pixelate and dot mosaic transformations).
-        ttk.Label(options_frame, text="Pixel Size:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        # ----- OUTPUT DIRECTORY FRAME -----
+        output_frame = ttk.LabelFrame(self.main_frame, text="2. Select Output Directory")
+        output_frame.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+        output_frame.columnconfigure(1, weight=1)
+        self.save_dir_btn = ttk.Button(output_frame, text="Choose Save Directory", command=self.select_save_directory)
+        self.save_dir_btn.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        self.save_dir_label = ttk.Label(output_frame, text="No directory selected")
+        self.save_dir_label.grid(row=0, column=1, padx=10, pady=10, sticky="w")
+        
+        # ----- TRANSFORMATION OPTIONS FRAME -----
+        options_frame = ttk.LabelFrame(self.main_frame, text="3. Choose Transformations")
+        options_frame.grid(row=3, column=0, padx=5, pady=5, sticky="ew")
+        options_frame.columnconfigure(1, weight=1)
+        ttk.Label(options_frame, text="Pixel Size:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
         self.pixel_size_entry = ttk.Entry(options_frame, width=5)
-        self.pixel_size_entry.insert(0, "10")  # Default value.
-        self.pixel_size_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
-
-        # Create checkboxes for each transformation option.
-        # The BooleanVar() holds the state (True or False) for the checkbox.
+        self.pixel_size_entry.insert(0, "10")
+        self.pixel_size_entry.grid(row=0, column=1, padx=10, pady=10, sticky="w")
         self.transform_vars = {
             "Pixelate": tk.BooleanVar(),
             "Dot Mosaic": tk.BooleanVar(),
@@ -143,61 +146,75 @@ class ImageTransformerApp:
             "Invert": tk.BooleanVar()
         }
         row = 1
-        # Loop through each transformation option and add a checkbox.
         for transform, var in self.transform_vars.items():
             cb = ttk.Checkbutton(options_frame, text=transform, variable=var)
-            cb.grid(row=row, column=0, columnspan=2, sticky="w", padx=5, pady=2)
+            cb.grid(row=row, column=0, columnspan=2, padx=10, pady=5, sticky="w")
             row += 1
 
-        # Frame for the process button.
-        process_frame = ttk.Frame(root)
-        process_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
-        # Button that triggers the image processing based on the selected options.
+        # ----- PROCESS BUTTON FRAME -----
+        process_frame = ttk.Frame(self.main_frame)
+        process_frame.grid(row=4, column=0, padx=5, pady=15, sticky="ew")
+        process_frame.columnconfigure(0, weight=1)
         self.process_btn = ttk.Button(process_frame, text="Process Image", command=self.process_image)
-        self.process_btn.grid(row=0, column=0, padx=5, pady=5)
+        self.process_btn.grid(row=0, column=0, padx=10, pady=10)
+
+        # ----- TRANSFORMATION SUMMARY FRAME -----
+        summary_frame = ttk.LabelFrame(self.main_frame, text="Transformation Summary")
+        summary_frame.grid(row=5, column=0, padx=5, pady=5, sticky="ew")
+        summary_frame.columnconfigure(0, weight=1)
+        self.summary_label = ttk.Label(summary_frame, text="No transformations applied yet", justify="left", wraplength=400)
+        self.summary_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
     
     def select_image(self):
         """
-        Opens a file dialog to let the user select an image file.
-        After selection, the image is loaded and stored.
+        Opens a file dialog to choose an image. Loads the image and updates labels
+        with the file name and image information (dimensions and pixel count).
         """
         file_path = filedialog.askopenfilename(
             title="Select an Image",
             filetypes=[("Image Files", "*.jpg;*.jpeg;*.png;*.bmp;*.gif")]
         )
-        # If a file is selected, load it.
         if file_path:
             try:
                 self.image = Image.open(file_path)
                 self.image_path = file_path
-                # Update the label with the file name.
                 self.file_label.config(text=os.path.basename(file_path))
+                width, height = self.image.size
+                total_pixels = width * height
+                info_text = f"Dimensions: {width} x {height}  |  Total Pixels: {total_pixels}"
+                self.info_label.config(text=info_text)
             except Exception as e:
                 messagebox.showerror("Error", f"Unable to open image:\n{e}")
         else:
             messagebox.showwarning("File Selection", "No file was selected.")
 
+    def select_save_directory(self):
+        """
+        Opens a directory dialog for selecting an output folder for processed images.
+        """
+        directory = filedialog.askdirectory(title="Select Save Directory")
+        if directory:
+            self.save_directory = directory
+            self.save_dir_label.config(text=directory)
+        else:
+            messagebox.showwarning("Directory Selection", "No directory was selected.")
+
     def process_image(self):
         """
-        Processes the loaded image based on the selected transformation options.
-        For each selected transformation:
-         - Applies the transformation.
-         - Saves the resulting image in the same directory with a modified name.
-         - Displays the image in a new window.
+        Processes the loaded image using selected transformations.
+        Saves processed images to the chosen output directory (or default directory)
+        and updates the Transformation Summary with details about the manipulation.
         """
-        # Check if an image has been loaded.
         if self.image is None or self.image_path is None:
             messagebox.showerror("No Image", "Please select an image first.")
             return
 
-        # Retrieve and validate the pixel size from the entry field.
         try:
             pixel_size = int(self.pixel_size_entry.get())
         except ValueError:
             messagebox.showerror("Input Error", "Pixel Size must be an integer.")
             return
 
-        # Map each transformation option to its corresponding function.
         transformations = {
             "Pixelate": lambda img: pixelate_image(img, pixel_size=pixel_size),
             "Dot Mosaic": lambda img: dot_mosaic_image(img, pixel_size=pixel_size),
@@ -205,10 +222,15 @@ class ImageTransformerApp:
             "Invert": invert_image
         }
 
-        # Determine where to save transformed images by splitting the original file path.
-        directory, filename = os.path.split(self.image_path)
+        if self.save_directory:
+            directory = self.save_directory
+        else:
+            directory, _ = os.path.split(self.image_path)
 
-        # Apply each selected transformation.
+        width, height = self.image.size
+        total_pixels = width * height
+        summary_str = f"Original Image: {width} x {height} ({total_pixels} pixels)\n"
+        
         for transform_name, func in transformations.items():
             if self.transform_vars[transform_name].get():
                 try:
@@ -218,47 +240,47 @@ class ImageTransformerApp:
                                          f"Error applying {transform_name} transformation:\n{e}")
                     continue
 
-                # Create a new filename indicating the type of transformation.
-                base, ext = os.path.splitext(filename)
+                base, ext = os.path.splitext(os.path.basename(self.image_path))
                 new_filename = f"{base}_{transform_name.replace(' ', '').lower()}{ext}"
                 save_path = os.path.join(directory, new_filename)
                 try:
-                    # Save the transformed image.
                     transformed_image.save(save_path)
                     print(f"{transform_name} image saved to: {save_path}")
                 except Exception as e:
                     messagebox.showerror("Save Error", f"Error saving {transform_name} image:\n{e}")
                     continue
                 
-                # Display the transformed image.
+                # Update summary with specifics for each transformation.
+                if transform_name in ("Pixelate", "Dot Mosaic"):
+                    blocks_x = width // pixel_size
+                    blocks_y = height // pixel_size
+                    total_blocks = blocks_x * blocks_y
+                    summary_str += (f"\n{transform_name}:\n  Divided into {blocks_x} columns x {blocks_y} rows = {total_blocks} blocks "
+                                    f"(~{pixel_size**2} pixels per block).\n")
+                elif transform_name == "Grayscale":
+                    summary_str += f"\nGrayscale:\n  All {total_pixels} pixels converted to grayscale.\n"
+                elif transform_name == "Invert":
+                    summary_str += f"\nInvert:\n  All {total_pixels} pixels had their colors inverted.\n"
+
                 self.display_image(transformed_image, f"{transform_name} Image")
-    
+
+        self.summary_label.config(text=summary_str)
+
     def display_image(self, pil_image, window_title):
         """
-        Displays a given PIL image in a new Tkinter window (Toplevel widget).
-        Args:
-            pil_image: The PIL image object to display.
-            window_title: Title for the new window.
+        Display a transformed image in a new top-level window.
         """
-        # Create a new top-level window.
         top = tk.Toplevel(self.root)
         top.title(window_title)
-        
-        # Convert the PIL image to a Tkinter PhotoImage.
         tk_image = ImageTk.PhotoImage(pil_image)
-        # Create and place a label widget with the image.
         label = ttk.Label(top, image=tk_image)
-        label.image = tk_image  # Keep a reference so that the image is not garbage-collected.
+        label.image = tk_image  # Maintain a reference.
         label.pack(padx=10, pady=10)
-        
 
 # -------------------------------
 # MAIN EXECUTION BLOCK
 # -------------------------------
 if __name__ == "__main__":
-    # Create the main Tkinter window.
     root = tk.Tk()
-    # Instantiate the ImageTransformerApp with the root window.
     app = ImageTransformerApp(root)
-    # Start the Tkinter event loop.
     root.mainloop()
